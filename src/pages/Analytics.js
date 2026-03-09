@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { C, F, fmtHrs, fmtINR } from '../lib/utils';
-import { WORK_TYPES, DEFAULT_TARGETS, getWorkType, clientTypes } from '../lib/workTypes';
+import { WORK_TYPES, DEFAULT_TARGETS, getWorkType, clientTypes, isBillableWorkType } from '../lib/workTypes';
 import { Cap, PageShell, Card, Divider, Empty, Badge, StatBox } from '../components/UI';
 
 // ─── HELPERS ──────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ export default function AnalyticsPage({ logs, team, projects, clients, invoices,
   // ── Team-wide totals ────────────────────────────────────────────
   const totalHours    = filteredLogs.reduce((s, l) => s + (l.hours || 0), 0);
   const billedHours   = filteredLogs.filter(l => l.billed).reduce((s, l) => s + (l.hours || 0), 0);
-  const clientHours   = filteredLogs.filter(l => clientTypes.includes(l.work_type)).reduce((s, l) => s + (l.hours || 0), 0);
+  const clientHours   = filteredLogs.filter(l => isBillableWorkType(l.work_type)).reduce((s, l) => s + (l.hours || 0), 0);
   const billableRatio = pct(billedHours, totalHours);
   const clientRatio   = pct(clientHours, totalHours);
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { C, F, fmtINR, fmtHrs, uid } from '../lib/utils';
+import { isBillableWorkType } from '../lib/workTypes';
 import { Cap, Inp, Sel, Btn, Badge, Card, Modal, Divider, Row, PageShell, Empty, Avatar, StatBox, Pill } from '../components/UI';
 
 // ─── CLIENTS ──────────────────────────────────────────────────────
@@ -209,7 +210,7 @@ export function ProjectsPage({ projects, clients, logs, onAdd, onEdit, onDelete,
           const client     = clients.find(c => c.id === proj.client_id);
           const projLogs   = logs.filter(l => l.project_id === proj.id);
           const totalH     = projLogs.reduce((s, l) => s + (l.hours || 0), 0);
-          const unbilledH  = projLogs.filter(l => !l.billed).reduce((s, l) => s + (l.hours || 0), 0);
+          const unbilledH  = projLogs.filter(l => !l.billed && isBillableWorkType(l.work_type)).reduce((s, l) => s + (l.hours || 0), 0);
           return (
             <Card key={proj.id} style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
@@ -224,7 +225,8 @@ export function ProjectsPage({ projects, clients, logs, onAdd, onEdit, onDelete,
                   {proj.description && <div style={{ fontFamily: F.body, fontSize: 11, color: C.muted, marginTop: 6 }}>{proj.description}</div>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12 }}>
-                  <Btn variant="ghost" onClick={() => onNav('invoice', { projectId: proj.id })}>Invoice →</Btn>
+                  <Btn variant="ghost" onClick={() => onNav('project-detail', { projectId: proj.id })}>View →</Btn>
+                  <Btn variant="ghost" onClick={() => onNav('invoice', { projectId: proj.id })}>Invoice</Btn>
                   <Btn variant="ghost" onClick={() => onNav('timelog', { projectId: proj.id })}>Log Time</Btn>
                   <Btn variant="ghost" onClick={() => { setForm({ ...proj }); setModal('edit'); }}>Edit</Btn>
                   <Btn variant="danger" onClick={() => onDelete(proj.id)}>✕</Btn>

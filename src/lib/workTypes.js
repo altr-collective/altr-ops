@@ -9,6 +9,7 @@ export const WORK_TYPES = [
     short: 'Research',
     color: '#4E8FC7',        // blue
     group: 'client',
+    billable: true,
     description: 'Interviews, usability testing, field work, journey mapping',
   },
   {
@@ -17,6 +18,7 @@ export const WORK_TYPES = [
     short: 'Design',
     color: '#8B6FBE',        // purple
     group: 'client',
+    billable: true,
     description: 'Wireframes, UI design, prototyping, visual design, handoff',
   },
   {
@@ -25,6 +27,7 @@ export const WORK_TYPES = [
     short: 'Strategy',
     color: '#52B87A',        // green
     group: 'client',
+    billable: true,
     description: 'Workshops, presentations, client calls, synthesis',
   },
   {
@@ -33,10 +36,12 @@ export const WORK_TYPES = [
     short: 'Revisions',
     color: '#D98C45',        // orange
     group: 'client',
+    billable: true,
     description: 'Rework based on client feedback',
   },
   {
     id: 'biz_dev',
+    billable: false,
     label: 'Business Development',
     short: 'Biz Dev',
     color: '#C94F4F',        // red
@@ -45,6 +50,7 @@ export const WORK_TYPES = [
   },
   {
     id: 'ops_admin',
+    billable: false,
     label: 'Ops & Admin',
     short: 'Admin',
     color: '#444444',        // dark grey
@@ -53,6 +59,7 @@ export const WORK_TYPES = [
   },
   {
     id: 'learning',
+    billable: false,
     label: 'Learning & Capability',
     short: 'Learning',
     color: '#3AAFA9',        // teal
@@ -61,6 +68,7 @@ export const WORK_TYPES = [
   },
   {
     id: 'culture',
+    billable: false,
     label: 'Culture & Collaboration',
     short: 'Culture',
     color: '#C96BA8',        // pink
@@ -83,3 +91,5 @@ export const DEFAULT_TARGETS = {
 
 export const getWorkType = id => WORK_TYPES.find(w => w.id === id) || WORK_TYPES[1];
 export const clientTypes = WORK_TYPES.filter(w => w.group === 'client').map(w => w.id);
+export const billableTypes = WORK_TYPES.filter(w => w.billable).map(w => w.id);
+export const isBillableWorkType = id => !id || billableTypes.includes(id);

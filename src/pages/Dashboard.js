@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate } from '../lib/utils';
 import { Cap, Card, FilterBar, Empty, Badge, Btn, StatBox } from '../components/UI';
+import { isBillableWorkType } from '../lib/workTypes';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { InvoiceRender } from './TimeLogInvoice';
 
@@ -12,7 +13,7 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
   const totalInv   = invoices.reduce((s, i) => s + (i.total || 0), 0);
   const totalPaid  = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total || 0), 0);
   const totalOut   = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + (i.total || 0), 0);
-  const unbilledH  = logs.filter(l => !l.billed).reduce((s, l) => s + (l.hours || 0), 0);
+  const unbilledH  = logs.filter(l => !l.billed && isBillableWorkType(l.work_type)).reduce((s, l) => s + (l.hours || 0), 0);
   const activeProj = projects.filter(p => p.status === 'active').length;
 
   const filtered = filter === 'all' ? invoices : invoices.filter(i => i.status === filter);

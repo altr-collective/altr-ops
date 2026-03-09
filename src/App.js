@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from './lib/supabase';
+import { isBillableWorkType } from './lib/workTypes';
 import { useAuth } from './auth/useAuth';
 import { C, F } from './lib/utils';
 import { Cap, Toast } from './components/UI';
@@ -8,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import { ClientsPage, TeamPage, ProjectsPage } from './pages/ClientsTeamProjects';
 import { TimeLogPage, InvoicePage, FloatingTimer } from './pages/TimeLogInvoice';
 import AnalyticsPage from './pages/Analytics';
+import ProjectDetail from './pages/ProjectDetail';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, isAdmin } = useAuth();
@@ -191,6 +193,7 @@ export default function App() {
       {screen === 'timelog'   && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} />}
       {screen === 'invoice'   && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
       {screen === 'analytics' && <AnalyticsPage {...shared} />}
+      {screen === 'project-detail' && <ProjectDetail {...shared} projectId={navData?.projectId} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} />}
 
       {!isAdmin && ['clients','team','invoice'].includes(screen) && (
         <div style={{ maxWidth:600, margin:'80px auto', padding:'0 32px', textAlign:'center' }}>
