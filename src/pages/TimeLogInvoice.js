@@ -1,0 +1,330 @@
+import { useState, useEffect } from 'react';
+import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate, uid, today } from '../lib/utils';
+import { Cap, Inp, Sel, Btn, Badge, Card, Modal, Divider, Row, PageShell, Empty, Avatar, StatBox, Sec } from '../components/UI';
+
+// ─── TIME LOG ─────────────────────────────────────────────────────
+export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, onNav, navData }) {
+  const [modal, setModal] = useState(false);
+  const [fMember, setFM]  = useState('all');
+  const [fProject, setFP] = useState(navData?.projectId || 'all');
+  const [form, setForm]   = useState({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
+  const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const save = () => {
+    if (!form.member_id || !form.project_id || !form.hours) return;
+    onAdd({ ...form, id: uid(), hours: parseFloat(form.hours), billed: false });
+    setModal(false);
+    setForm({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
+  };
+
+  const filtered = logs.filter(l =>
+    (fMember === 'all' || l.member_id === fMember) &&
+    (fProject === 'all' || l.project_id === fProject)
+  );
+  const totalH    = filtered.reduce((s, l) => s + (l.hours || 0), 0);
+  const unbilledH = filtered.filter(l => !l.billed).reduce((s, l) => s + (l.hours || 0), 0);
+
+  return (
+    <PageShell title="Time Log" onBack={() => onNav('dashboard')} action={<Btn onClick={() => setModal(true)}>+ Log Time</Btn>}>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+        <Sel value={fMember} onChange={e => setFM(e.target.value)} containerStyle={{ marginBottom: 0 }}>
+          <option value="all">All members</option>
+          {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </Sel>
+        <Sel value={fProject} onChange={e => setFP(e.target.value)} containerStyle={{ marginBottom: 0 }}>
+          <option value="all">All projects</option>
+          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </Sel>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center', padding: '0 16px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 4 }}>
+          <StatBox label="Total" value={fmtHrs(totalH)} />
+          <StatBox label="Unbilled" value={fmtHrs(unbilledH)} color={unbilledH > 0 ? C.orange : C.green} />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? <Empty icon="◷" text="No time entries" /> :
+        filtered.map(log => {
+          const member  = team.find(m => m.id === log.member_id);
+          const project = projects.find(p => p.id === log.project_id);
+          const client  = clients.find(c => c.id === project?.client_id);
+          return (
+            <div key={log.id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto', gap: 14, alignItems: 'center', padding: '12px 14px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, marginBottom: 6 }}>
+              <Avatar name={member?.name || '?'} size={34} />
+              <div>
+                <div style={{ fontFamily: F.con, fontWeight: 700, fontSize: 12, color: C.cream, letterSpacing: 1, marginBottom: 2 }}>
+                  {member?.name || 'Unknown'} <span style={{ color: C.muted, fontWeight: 400 }}>on</span> {project?.name || 'Unknown project'}
+                </div>
+                <div style={{ fontFamily: F.con, fontSize: 9, color: C.muted, letterSpacing: 1 }}>
+                  {client?.name || ''}{log.notes ? ` · ${log.notes}` : ''} · {fmtDate(log.date)}
+                </div>
+              </div>
+              <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 15, color: C.cream }}>{log.hours}h</div>
+              <Badge status={log.billed ? 'billed' : 'unpaid'} />
+              <Btn variant="danger" onClick={() => onDelete(log.id)}>✕</Btn>
+            </div>
+          );
+        })
+      }
+
+      {modal && (
+        <Modal title="Log Time" onClose={() => setModal(false)}>
+          <Sel label="Team Member *" value={form.member_id || ''} onChange={f('member_id')}>
+            <option value="">Select member…</option>
+            {team.map(m => <option key={m.id} value={m.id}>{m.name} — {m.role || 'Team'}</option>)}
+          </Sel>
+          <Sel label="Project *" value={form.project_id || ''} onChange={f('project_id')}>
+            <option value="">Select project…</option>
+            {projects.filter(p => p.status === 'active').map(p => {
+              const c = clients.find(cl => cl.id === p.client_id);
+              return <option key={p.id} value={p.id}>{p.name} ({c?.name || '?'})</option>;
+            })}
+          </Sel>
+          <Row>
+            <Inp label="Date *" type="date" value={form.date} onChange={f('date')} />
+            <Inp label="Hours *" type="number" step="0.25" value={form.hours} onChange={f('hours')} placeholder="e.g. 3.5" />
+          </Row>
+          <Inp label="Notes" value={form.notes || ''} onChange={f('notes')} placeholder="What was worked on?" />
+          <Row style={{ marginTop: 18 }}>
+            <Btn variant="secondary" onClick={() => setModal(false)}>Cancel</Btn>
+            <Btn onClick={save}>Log Time</Btn>
+          </Row>
+        </Modal>
+      )}
+    </PageShell>
+  );
+}
+
+// ─── INVOICE ──────────────────────────────────────────────────────
+export function InvoicePage({ clients, team, projects, logs, invoices, onSave, onNav, navData }) {
+  const [clientId,  setClientId]  = useState('');
+  const [projectId, setProjectId] = useState(navData?.projectId || '');
+  const [invNo,     setInvNo]     = useState(String((invoices?.length || 0) + 1).padStart(2, '0'));
+  const [invDate,   setInvDate]   = useState(today());
+  const [terms,     setTerms]     = useState('Net 30');
+  const [gst,       setGst]       = useState(false);
+  const [gstRate,   setGstRate]   = useState(18);
+  const [extras,    setExtras]    = useState([]);
+  const [preview,   setPreview]   = useState(false);
+
+  useEffect(() => {
+    if (projectId) {
+      const proj = projects.find(p => p.id === projectId);
+      if (proj) {
+        setClientId(proj.client_id);
+        const c = clients.find(x => x.id === proj.client_id);
+        if (c?.terms) setTerms(c.terms);
+      }
+    }
+  }, [projectId]);
+
+  const client          = clients.find(c => c.id === clientId);
+  const project         = projects.find(p => p.id === projectId);
+  const clientProjects  = projects.filter(p => p.client_id === clientId);
+  const unbilledLogs    = project ? logs.filter(l => l.project_id === projectId && !l.billed) : [];
+
+  const buildLines = () => {
+    const ext = extras.map(l => ({ ...l, amount: parseFloat(l.amount) || 0 }));
+    if (!project) return ext;
+    if (project.type === 'fixed') return [{ title: project.name, desc: project.description || 'Fixed project fee', amount: parseFloat(project.amount) || 0 }, ...ext];
+    const byMember = {};
+    unbilledLogs.forEach(log => {
+      const member = team.find(m => m.id === log.member_id);
+      if (!member) return;
+      const rate = parseFloat(member.rates?.[clientId]) || parseFloat(member.default_rate) || parseFloat(client?.default_rate) || 0;
+      if (!byMember[log.member_id]) byMember[log.member_id] = { member, rate, hours: 0 };
+      byMember[log.member_id].hours += log.hours;
+    });
+    return [...Object.values(byMember).map(({ member, rate, hours }) => ({
+      title: member.name, desc: `${Math.round(hours * 10) / 10}h × ${fmtINR(rate)}/hr`, amount: hours * rate
+    })), ...ext];
+  };
+
+  const lines    = buildLines();
+  const subtotal = lines.reduce((s, l) => s + l.amount, 0);
+  const gstAmt   = gst ? subtotal * gstRate / 100 : 0;
+  const total    = subtotal + gstAmt;
+
+  const addExtra = () => setExtras(p => [...p, { id: uid(), title: '', desc: '', amount: '' }]);
+  const updExtra = (id, k, v) => setExtras(p => p.map(l => l.id === id ? { ...l, [k]: v } : l));
+  const delExtra = id => setExtras(p => p.filter(l => l.id !== id));
+
+  const saveInvoice = () => {
+    if (!clientId || !projectId) return;
+    onSave({
+      id: uid(), client_id: clientId, client_name: client?.name || '—',
+      project_id: projectId, project_name: project?.name || '',
+      no: invNo, date: invDate, terms, subtotal, gst, gst_rate: gst ? gstRate : 0,
+      total, status: 'unpaid', line_items: lines,
+    }, unbilledLogs.map(l => l.id));
+    onNav('dashboard');
+  };
+
+  return (
+    <PageShell title="New Invoice" onBack={() => onNav('dashboard')}>
+      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 24, alignItems: 'start' }}>
+
+        {/* FORM */}
+        <div>
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <Sec title="Client & Project">
+              <Sel label="Client" value={clientId} onChange={e => { setClientId(e.target.value); setProjectId(''); setPreview(false); }}>
+                <option value="">Select client…</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Sel>
+              {clientId && (
+                <Sel label="Project" value={projectId} onChange={e => { setProjectId(e.target.value); setPreview(false); }}>
+                  <option value="">Select project…</option>
+                  {clientProjects.map(p => <option key={p.id} value={p.id}>{p.name} — {p.type}</option>)}
+                </Sel>
+              )}
+              {projectId && project?.type === 'hourly' && (
+                <div style={{ padding: '10px 12px', borderRadius: 5, background: unbilledLogs.length > 0 ? 'rgba(82,184,122,.06)' : 'rgba(217,140,69,.06)', border: `1px solid ${unbilledLogs.length > 0 ? 'rgba(82,184,122,.2)' : 'rgba(217,140,69,.2)'}` }}>
+                  <div style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: unbilledLogs.length > 0 ? C.green : C.orange }}>
+                    {unbilledLogs.length > 0
+                      ? `${unbilledLogs.length} unbilled entries · ${fmtHrs(unbilledLogs.reduce((s, l) => s + l.hours, 0))} across ${new Set(unbilledLogs.map(l => l.member_id)).size} member(s)`
+                      : 'No unbilled time entries for this project'
+                    }
+                  </div>
+                </div>
+              )}
+            </Sec>
+
+            <Sec title="Invoice Details">
+              <Row>
+                <Inp label="Invoice No." value={invNo} onChange={e => setInvNo(e.target.value)} />
+                <Inp label="Date" type="date" value={invDate} onChange={e => setInvDate(e.target.value)} />
+              </Row>
+              <Sel label="Payment Terms" value={terms} onChange={e => setTerms(e.target.value)}>
+                {['Due on receipt','Net 7','Net 15','Net 30','Net 45','Net 60'].map(t => <option key={t}>{t}</option>)}
+              </Sel>
+            </Sec>
+
+            {projectId && (
+              <Sec title="Line Items">
+                {lines.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
+                    <div>
+                      <div style={{ fontFamily: F.con, fontWeight: 700, fontSize: 12, color: C.cream }}>{item.title}</div>
+                      <div style={{ fontFamily: F.con, fontSize: 9, color: C.label, marginTop: 1 }}>{item.desc}</div>
+                    </div>
+                    <div style={{ fontFamily: F.con, fontSize: 12, color: C.cream, flexShrink: 0, marginLeft: 12 }}>{fmtINR(item.amount)}</div>
+                  </div>
+                ))}
+                {extras.map(l => (
+                  <div key={l.id} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 5, padding: 10, marginTop: 8, position: 'relative' }}>
+                    <button onClick={() => delExtra(l.id)} style={{ position: 'absolute', top: 6, right: 8, background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 13 }}>×</button>
+                    <Inp placeholder="Line item title" value={l.title} onChange={e => updExtra(l.id, 'title', e.target.value)} style={{ marginBottom: 6 }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: 8 }}>
+                      <Inp placeholder="Description" value={l.desc} onChange={e => updExtra(l.id, 'desc', e.target.value)} />
+                      <Inp type="number" placeholder="₹" value={l.amount} onChange={e => updExtra(l.id, 'amount', e.target.value)} />
+                    </div>
+                  </div>
+                ))}
+                <button onClick={addExtra} style={{ marginTop: 10, width: '100%', background: 'transparent', border: `1px dashed ${C.border2}`, borderRadius: 4, padding: 8, fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: C.muted, cursor: 'pointer' }}>
+                  + Extra Line Item
+                </button>
+              </Sec>
+            )}
+
+            <Sec title="Tax">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div onClick={() => setGst(!gst)} style={{ position: 'relative', width: 34, height: 19, borderRadius: 19, background: gst ? C.cream : C.border2, cursor: 'pointer', transition: '.2s', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', width: 13, height: 13, borderRadius: '50%', background: gst ? C.bg : C.muted, top: 3, left: gst ? 18 : 3, transition: '.2s' }} />
+                </div>
+                <Cap style={{ marginBottom: 0, cursor: 'pointer' }} onClick={() => setGst(!gst)}>Apply GST</Cap>
+                {gst && <Inp type="number" value={gstRate} onChange={e => setGstRate(parseFloat(e.target.value))} style={{ width: 70, marginLeft: 'auto' }} containerStyle={{ marginBottom: 0 }} />}
+              </div>
+            </Sec>
+
+            {projectId && (
+              <Sec>
+                {[['Subtotal', fmtINR(subtotal)], ['Tax (GST)', gst ? `${fmtINR(gstAmt)} (${gstRate}%)` : 'NA'], ['Total', fmtINR(total)]].map(([l, v], i) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: i < 2 ? `1px solid ${C.border}` : 'none' }}>
+                    <Cap style={{ marginBottom: 0, fontSize: i === 2 ? 10 : 9, fontWeight: i === 2 ? 800 : 600 }}>{l}</Cap>
+                    <div style={{ fontFamily: F.con, fontWeight: i === 2 ? 800 : 400, fontSize: i === 2 ? 16 : 12, color: i === 2 ? C.cream : C.text }}>{v}</div>
+                  </div>
+                ))}
+              </Sec>
+            )}
+
+            <div style={{ padding: 18 }}>
+              <Btn style={{ width: '100%' }} onClick={() => { if (!clientId || !projectId) return; setPreview(true); }}>
+                Preview Invoice →
+              </Btn>
+            </div>
+          </Card>
+        </div>
+
+        {/* PREVIEW */}
+        <div style={{ position: 'sticky', top: 24 }}>
+          {!preview
+            ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 48, textAlign: 'center', opacity: .2 }}>
+                <Cap>Select client and project to preview</Cap>
+              </div>
+            : <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <Cap style={{ marginBottom: 0 }}>Preview</Cap>
+                  <Btn variant="green" onClick={saveInvoice}>Save &amp; Mark Billed ✓</Btn>
+                </div>
+                <InvoiceRender
+                  client={client} invNo={invNo} invDate={invDate}
+                  lines={lines} subtotal={subtotal} gst={gst} gstRate={gstRate}
+                  gstAmt={gstAmt} total={total} due={calcDueDate(invDate, terms)}
+                />
+              </>
+          }
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+// ─── INVOICE RENDER ───────────────────────────────────────────────
+export function InvoiceRender({ client, invNo, invDate, lines, subtotal, gst, gstRate, gstAmt, total, due }) {
+  const INV = { bg: '#EDE8DE', black: '#0C0C0C', gray: '#888', light: '#C8C2B8' };
+  return (
+    <div style={{ background: INV.bg, borderRadius: 4, overflow: 'hidden', boxShadow: '0 20px 70px rgba(0,0,0,.6)' }}>
+      <div style={{ background: INV.black, padding: '22px 28px 17px' }}>
+        <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 60, lineHeight: .88, letterSpacing: -1.5, color: INV.bg, textTransform: 'uppercase' }}>ALTR COLLECTIVE</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 11 }}>
+          <span style={{ fontFamily: F.con, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: INV.bg }}>FOR: <strong>{client?.name || '—'}</strong></span>
+          <span style={{ fontFamily: F.con, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: INV.bg }}>DATE: <strong>{fmtDateLong(invDate)}</strong></span>
+        </div>
+      </div>
+      <div style={{ padding: '26px 28px 0', color: INV.black }}>
+        <div style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 3, color: INV.gray, marginBottom: 4 }}>INVOICE NO: <strong style={{ color: INV.black }}>{String(invNo).padStart(2, '0')}</strong></div>
+        <div style={{ borderTop: `1px solid ${INV.black}`, margin: '5px 0 14px' }} />
+        <div style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: INV.gray, marginBottom: 18 }}>{due}</div>
+        {lines.map((item, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontFamily: F.body, fontWeight: 700, fontSize: 13, color: INV.black }}>{(item.title || '').toUpperCase()}</div>
+              <div style={{ fontFamily: F.body, fontWeight: 300, fontSize: 11, color: INV.black }}>{item.desc}</div>
+            </div>
+            <div style={{ fontFamily: F.con, fontSize: 13, color: INV.black, whiteSpace: 'nowrap', marginLeft: 16 }}>{fmtINR(item.amount)}</div>
+          </div>
+        ))}
+        <div style={{ borderTop: `1px solid ${INV.light}`, margin: '8px 0 6px' }} />
+        {[['SUBTOTAL', fmtINR(subtotal), false], ['TAX (GST)', gst ? `${fmtINR(gstAmt)} (${gstRate}%)` : 'NA', false], ['TOTAL', fmtINR(total), true]].map(([l, v, bold]) => (
+          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+            <span style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: INV.black, fontWeight: bold ? 700 : 400 }}>{l}</span>
+            <span style={{ fontFamily: F.con, fontSize: bold ? 14 : 12, color: INV.black, fontWeight: bold ? 700 : 400 }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '18px 28px', borderTop: `1px solid ${INV.black}`, marginTop: 18 }}>
+        <div style={{ fontFamily: F.con, fontWeight: 700, fontSize: 22, textTransform: 'uppercase', color: INV.black, marginBottom: 12 }}>PAYMENT</div>
+        {[['ACCOUNT HOLDER','ALTR COLLECTIVE'],['ACCOUNT NO.','5020 0111 0781 68'],['BRANCH','BORIVALI, SHIMPOLI'],['IFSC','HDFC0000546']].map(([k, v]) => (
+          <div key={k} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', marginBottom: 5 }}>
+            <span style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: INV.gray }}>{k}</span>
+            <span style={{ fontFamily: F.con, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: INV.black }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 28px', borderTop: `1px solid ${INV.black}` }}>
+        <span style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: INV.black }}>ALTR COLLECTIVE</span>
+        <span style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: INV.black }}>MUMBAI</span>
+      </div>
+    </div>
+  );
+}
