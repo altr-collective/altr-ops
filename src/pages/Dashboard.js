@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { C, F, fmtINR, fmtHrs, fmtDate } from '../lib/utils';
+import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate } from '../lib/utils';
 import { Cap, Card, FilterBar, Empty, Badge, Btn, StatBox } from '../components/UI';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { InvoiceRender } from './TimeLogInvoice';
 
-export default function Dashboard({ clients, team, projects, logs, invoices, onNav, onMarkInvoice, isAdmin }) {
-  const [filter, setFilter] = useState('all');
+export default function Dashboard({ clients, team, projects, logs, invoices, onNav, onMarkInvoice, onDeleteInvoice, isAdmin }) {
+  const [filter,       setFilter]       = useState('all');
+  const [confirm,      setConfirm]      = useState(null);
+  const [previewInv,   setPreviewInv]   = useState(null);
 
   const totalInv   = invoices.reduce((s, i) => s + (i.total || 0), 0);
   const totalPaid  = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total || 0), 0);
@@ -13,17 +17,18 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
 
   const filtered = filter === 'all' ? invoices : invoices.filter(i => i.status === filter);
 
-  // Nav cards — members only see Time Log
   const navCards = isAdmin
     ? [
-        { label: 'Clients',  val: clients.length,    sub: 'registered',  icon: '◎', s: 'clients' },
-        { label: 'Team',     val: team.length,        sub: 'members',     icon: '◈', s: 'team' },
-        { label: 'Projects', val: activeProj,         sub: 'active',      icon: '◇', s: 'projects' },
-        { label: 'Unbilled', val: fmtHrs(unbilledH),  sub: 'hours logged', icon: '◷', s: 'timelog' },
+        { label: 'Clients',   val: clients.length,    sub: 'registered',   icon: '◎', s: 'clients' },
+        { label: 'Team',      val: team.length,        sub: 'members',      icon: '◈', s: 'team' },
+        { label: 'Projects',  val: activeProj,         sub: 'active',       icon: '◇', s: 'projects' },
+        { label: 'Unbilled',  val: fmtHrs(unbilledH),  sub: 'hours logged', icon: '◷', s: 'timelog' },
+        { label: 'Analytics', val: '→',                sub: 'productivity', icon: '◈', s: 'analytics' },
       ]
     : [
-        { label: 'Time Log',  val: fmtHrs(logs.filter(l=>!l.billed).reduce((s,l)=>s+l.hours,0)), sub: 'unbilled hours', icon: '◷', s: 'timelog' },
-        { label: 'Projects',  val: activeProj, sub: 'active projects', icon: '◇', s: 'projects' },
+        { label: 'Time Log',  val: fmtHrs(unbilledH), sub: 'unbilled hours',    icon: '◷', s: 'timelog' },
+        { label: 'Projects',  val: activeProj,         sub: 'active projects',   icon: '◇', s: 'projects' },
+        { label: 'Analytics', val: '→',                sub: 'your productivity', icon: '◈', s: 'analytics' },
       ];
 
   return (
@@ -49,7 +54,7 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
       </div>
 
       {/* Nav cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(140px, 1fr))`, gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 24 }}>
         {navCards.map(n => (
           <Card key={n.s} hover onClick={() => onNav(n.s)} style={{ padding: '20px 18px' }}>
             <div style={{ fontFamily: F.con, fontSize: 20, color: C.muted, marginBottom: 14 }}>{n.icon}</div>
@@ -97,18 +102,30 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
                   <div style={{ fontFamily: F.con, fontWeight: 700, fontSize: 14, color: C.cream }}>{fmtINR(inv.total)}</div>
                   <Badge status={inv.status} />
                   <div style={{ display: 'flex', gap: 4 }}>
+                    {/* Preview */}
+                    <button onClick={() => setPreviewInv(inv)}
+                      style={{ background: 'transparent', border: `1px solid ${C.border2}`, borderRadius: 3, padding: '3px 9px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: C.label, cursor: 'pointer' }}>
+                      Preview
+                    </button>
+                    {/* Mark paid */}
                     {inv.status !== 'paid' && (
                       <button onClick={() => onMarkInvoice(inv.id, 'paid')}
                         style={{ background: 'transparent', border: `1px solid rgba(82,184,122,.3)`, borderRadius: 3, padding: '3px 9px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: C.green, cursor: 'pointer' }}>
                         Paid
                       </button>
                     )}
+                    {/* Mark overdue */}
                     {inv.status === 'unpaid' && (
                       <button onClick={() => onMarkInvoice(inv.id, 'overdue')}
                         style={{ background: 'transparent', border: `1px solid ${C.border2}`, borderRadius: 3, padding: '3px 9px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: C.muted, cursor: 'pointer' }}>
                         Overdue
                       </button>
                     )}
+                    {/* Delete */}
+                    <button onClick={() => setConfirm(inv)}
+                      style={{ background: 'transparent', border: `1px solid rgba(201,79,79,.25)`, borderRadius: 3, padding: '3px 9px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: C.red, cursor: 'pointer' }}>
+                      ✕
+                    </button>
                   </div>
                 </div>
               ))
@@ -116,7 +133,7 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
         </>
       )}
 
-      {/* Member view — show own time log summary */}
+      {/* Member view */}
       {!isAdmin && (
         <div>
           <Cap style={{ marginBottom: 14 }}>Recent Time Entries</Cap>
@@ -138,6 +155,45 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
                 );
               })
           }
+        </div>
+      )}
+
+      {/* Invoice delete confirmation */}
+      {confirm && (
+        <ConfirmModal
+          title="Delete Invoice"
+          message={`Delete invoice for ${confirm.client_name} (${fmtINR(confirm.total)})? This cannot be undone.`}
+          confirmLabel="Delete Invoice"
+          onConfirm={() => { onDeleteInvoice(confirm.id); setConfirm(null); }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {/* Invoice preview modal */}
+      {previewInv && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.9)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: 24, overflowY: 'auto' }}
+          onClick={e => e.target === e.currentTarget && setPreviewInv(null)}>
+          <div style={{ width: '100%', maxWidth: 560 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Cap style={{ marginBottom: 0, color: C.label }}>Invoice Preview</Cap>
+              <button onClick={() => setPreviewInv(null)}
+                style={{ background: 'transparent', border: `1px solid ${C.border2}`, borderRadius: 4, padding: '5px 14px', fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: C.muted, cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+            <InvoiceRender
+              client={{ name: previewInv.client_name }}
+              invNo={previewInv.no}
+              invDate={previewInv.date}
+              lines={previewInv.line_items || []}
+              subtotal={previewInv.subtotal}
+              gst={previewInv.gst}
+              gstRate={previewInv.gst_rate}
+              gstAmt={previewInv.gst ? (previewInv.subtotal * previewInv.gst_rate / 100) : 0}
+              total={previewInv.total}
+              due={calcDueDate(previewInv.date, previewInv.terms)}
+            />
+          </div>
         </div>
       )}
     </div>

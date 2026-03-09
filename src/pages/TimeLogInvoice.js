@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate, uid, today } from '../lib/utils';
 import { Cap, Inp, Sel, Btn, Badge, Card, Modal, Divider, Row, PageShell, Empty, Avatar, StatBox, Sec } from '../components/UI';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { WORK_TYPES, getWorkType } from '../lib/workTypes';
 
 // ─── FLOATING TIMER ───────────────────────────────────────────────
@@ -178,11 +179,13 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
 }
 
 // ─── TIME LOG PAGE ────────────────────────────────────────────────
-export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, onNav, navData }) {
-  const [modal,   setModal] = useState(false);
-  const [fMember, setFM]    = useState('all');
-  const [fProject, setFP]   = useState(navData?.projectId || 'all');
-  const [form, setForm]     = useState({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
+export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, onDeleteMany, onNav, navData }) {
+  const [modal,    setModal]   = useState(false);
+  const [confirm,  setConfirm] = useState(null);  // { ids: [], label: '' }
+  const [selected, setSelected] = useState(new Set());
+  const [fMember,  setFM]      = useState('all');
+  const [fProject, setFP]      = useState(navData?.projectId || 'all');
+  const [form,     setForm]    = useState({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const save = async () => {
@@ -199,11 +202,37 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
   const totalH    = filtered.reduce((s, l) => s + (l.hours || 0), 0);
   const unbilledH = filtered.filter(l => !l.billed).reduce((s, l) => s + (l.hours || 0), 0);
 
+  const toggleSelect = id => setSelected(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map(l => l.id)));
+  };
+
+  const confirmDelete = (ids, label) => setConfirm({ ids, label });
+
+  const doDelete = async () => {
+    if (!confirm) return;
+    if (confirm.ids.length === 1) {
+      await onDelete(confirm.ids[0]);
+    } else {
+      await onDeleteMany(confirm.ids);
+    }
+    setSelected(new Set());
+    setConfirm(null);
+  };
+
+  const allSelected = filtered.length > 0 && selected.size === filtered.length;
+
   return (
     <PageShell title="Time Log" onBack={() => onNav('dashboard')} action={<Btn onClick={() => setModal(true)}>+ Manual Entry</Btn>}>
 
-      {/* Filters — stack on mobile */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
+      {/* Filters */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
         <Sel value={fMember} onChange={e => setFM(e.target.value)} containerStyle={{ marginBottom: 0 }}>
           <option value="all">All members</option>
           {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -218,13 +247,37 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
         </div>
       </div>
 
+      {/* Multi-select toolbar */}
+      {filtered.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, marginBottom: 10 }}>
+          {/* Select all checkbox */}
+          <div onClick={toggleAll} style={{ width: 18, height: 18, borderRadius: 3, border: `2px solid ${allSelected ? C.cream : C.border2}`, background: allSelected ? C.cream : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {allSelected && <div style={{ width: 10, height: 10, background: C.bg, borderRadius: 1 }} />}
+          </div>
+          <span style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: C.label }}>
+            {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+          </span>
+          {selected.size > 0 && (
+            <button onClick={() => confirmDelete([...selected], `${selected.size} time entr${selected.size === 1 ? 'y' : 'ies'}`)}
+              style={{ marginLeft: 'auto', background: 'transparent', border: `1px solid rgba(201,79,79,.3)`, borderRadius: 3, padding: '4px 12px', fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: C.red, cursor: 'pointer' }}>
+              Delete {selected.size} selected
+            </button>
+          )}
+        </div>
+      )}
+
       {filtered.length === 0 ? <Empty icon="◷" text="No time entries — use the ⏱ button to start tracking" /> :
         filtered.map(log => {
           const member  = team.find(m => m.id === log.member_id);
           const project = projects.find(p => p.id === log.project_id);
           const client  = clients.find(c => c.id === project?.client_id);
+          const isSelected = selected.has(log.id);
           return (
-            <div key={log.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div key={log.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px', background: isSelected ? 'rgba(237,232,222,.04)' : C.card, border: `1px solid ${isSelected ? C.cream + '44' : C.border}`, borderRadius: 6, marginBottom: 6, flexWrap: 'wrap', transition: 'all .1s' }}>
+              {/* Checkbox */}
+              <div onClick={() => toggleSelect(log.id)} style={{ width: 18, height: 18, borderRadius: 3, border: `2px solid ${isSelected ? C.cream : C.border2}`, background: isSelected ? C.cream : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {isSelected && <div style={{ width: 10, height: 10, background: C.bg, borderRadius: 1 }} />}
+              </div>
               <Avatar name={member?.name || '?'} size={34} />
               <div style={{ flex: 1, minWidth: 120 }}>
                 <div style={{ fontFamily: F.con, fontWeight: 700, fontSize: 12, color: C.cream, letterSpacing: 1, marginBottom: 2 }}>
@@ -237,12 +290,13 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
               <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 15, color: C.cream }}>{log.hours}h</div>
               {log.work_type && (() => { const wt = getWorkType(log.work_type); return <span style={{ fontFamily: F.con, fontSize: 8, letterSpacing: 1, padding: '2px 7px', borderRadius: 3, background: wt.color + '22', color: wt.color, border: `1px solid ${wt.color}44` }}>{wt.short}</span>; })()}
               <Badge status={log.billed ? 'billed' : 'unpaid'} />
-              <Btn variant="danger" onClick={() => onDelete(log.id)}>✕</Btn>
+              <Btn variant="danger" onClick={() => confirmDelete([log.id], '1 time entry')}>✕</Btn>
             </div>
           );
         })
       }
 
+      {/* Manual entry modal */}
       {modal && (
         <Modal title="Manual Time Entry" onClose={() => setModal(false)}>
           <Sel label="Team Member *" value={form.member_id || ''} onChange={f('member_id')}>
@@ -269,6 +323,17 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
             <Btn onClick={save}>Save Entry</Btn>
           </Row>
         </Modal>
+      )}
+
+      {/* Confirm delete modal */}
+      {confirm && (
+        <ConfirmModal
+          title="Delete Time Entries"
+          message={`Are you sure you want to delete ${confirm.label}? This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </PageShell>
   );

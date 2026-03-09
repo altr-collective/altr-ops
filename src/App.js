@@ -61,8 +61,18 @@ export default function App() {
   const editProject   = async r => { const d = await db.update('projects',  r.id, r); if (d) { setProjects(p=>p.map(x=>x.id===d.id?d:x)); notify('Project updated','ok'); }};
   const deleteProject = async id => { await db.remove('projects', id); setProjects(p=>p.filter(x=>x.id!==id)); notify('Project removed'); };
 
-  const addLog    = async r => { const d = await db.insert('logs', r); if (d) { setLogs(p=>[d,...p]); notify('Time logged','ok'); }};
-  const deleteLog = async id => { await db.remove('logs', id); setLogs(p=>p.filter(x=>x.id!==id)); notify('Entry removed'); };
+  const addLog       = async r => { const d = await db.insert('logs', r); if (d) { setLogs(p=>[d,...p]); notify('Time logged','ok'); }};
+  const deleteLog    = async id => { await db.remove('logs', id); setLogs(p=>p.filter(x=>x.id!==id)); notify('Entry removed'); };
+  const deleteManyLogs = async ids => {
+    await Promise.all(ids.map(id => db.remove('logs', id)));
+    setLogs(p=>p.filter(x=>!ids.includes(x.id)));
+    notify(`${ids.length} entries removed`);
+  };
+  const deleteInvoice = async id => {
+    await db.remove('invoices', id);
+    setInvoices(p=>p.filter(x=>x.id!==id));
+    notify('Invoice deleted');
+  };
 
   const saveInvoice = async (invoiceRow, billedLogIds) => {
     const d = await db.insert('invoices', invoiceRow);
@@ -174,11 +184,11 @@ export default function App() {
       {userMenu && <div style={{ position:'fixed', inset:0, zIndex:99 }} onClick={() => setUserMenu(false)} />}
 
       {/* Screens */}
-      {screen === 'dashboard' && <Dashboard {...shared} onMarkInvoice={markInvoice} />}
+      {screen === 'dashboard' && <Dashboard {...shared} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} />}
       {screen === 'clients'   && isAdmin && <ClientsPage  {...shared} onAdd={addClient}  onEdit={editClient}  onDelete={deleteClient} />}
       {screen === 'team'      && isAdmin && <TeamPage     {...shared} onAdd={addTeam}    onEdit={editTeam}    onDelete={deleteTeam} />}
       {screen === 'projects'  && isAdmin && <ProjectsPage {...shared} onAdd={addProject} onEdit={editProject} onDelete={deleteProject} />}
-      {screen === 'timelog'   && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} />}
+      {screen === 'timelog'   && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} />}
       {screen === 'invoice'   && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
       {screen === 'analytics' && <AnalyticsPage {...shared} />}
 
