@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate, uid, today } from '../lib/utils';
 import { Cap, Inp, Sel, Btn, Badge, Card, Modal, Divider, Row, PageShell, Empty, Avatar, StatBox, Sec } from '../components/UI';
+import { WORK_TYPES, getWorkType } from '../lib/workTypes';
 
 // ─── FLOATING TIMER ───────────────────────────────────────────────
 export function FloatingTimer({ team, projects, clients, onAdd }) {
@@ -153,6 +154,9 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
                     })}
                   </Sel>
                   <Inp label="Date" type="date" value={form.date} onChange={f('date')} containerStyle={{ marginBottom: 0 }} />
+                  <Sel label="Work Type *" value={form.work_type || 'client_design'} onChange={f('work_type')}>
+                    {WORK_TYPES.map(wt => <option key={wt.id} value={wt.id}>{wt.label}</option>)}
+                  </Sel>
                   <Inp label="Notes (optional)" value={form.notes || ''} onChange={f('notes')} placeholder="What did you work on?" containerStyle={{ marginBottom: 0, marginTop: 12 }} />
                 </div>
 
@@ -231,6 +235,7 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
                 </div>
               </div>
               <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 15, color: C.cream }}>{log.hours}h</div>
+              {log.work_type && (() => { const wt = getWorkType(log.work_type); return <span style={{ fontFamily: F.con, fontSize: 8, letterSpacing: 1, padding: '2px 7px', borderRadius: 3, background: wt.color + '22', color: wt.color, border: `1px solid ${wt.color}44` }}>{wt.short}</span>; })()}
               <Badge status={log.billed ? 'billed' : 'unpaid'} />
               <Btn variant="danger" onClick={() => onDelete(log.id)}>✕</Btn>
             </div>
@@ -255,6 +260,9 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
             <Inp label="Date *" type="date" value={form.date} onChange={f('date')} />
             <Inp label="Hours *" type="number" step="0.25" value={form.hours} onChange={f('hours')} placeholder="e.g. 3.5" />
           </Row>
+          <Sel label="Work Type *" value={form.work_type || 'client_design'} onChange={f('work_type')}>
+            {WORK_TYPES.map(wt => <option key={wt.id} value={wt.id}>{wt.label}</option>)}
+          </Sel>
           <Inp label="Notes" value={form.notes || ''} onChange={f('notes')} placeholder="What was worked on?" />
           <Row style={{ marginTop: 18 }}>
             <Btn variant="secondary" onClick={() => setModal(false)}>Cancel</Btn>

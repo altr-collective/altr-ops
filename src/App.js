@@ -7,6 +7,7 @@ import LoginPage from './auth/LoginPage';
 import Dashboard from './pages/Dashboard';
 import { ClientsPage, TeamPage, ProjectsPage } from './pages/ClientsTeamProjects';
 import { TimeLogPage, InvoicePage, FloatingTimer } from './pages/TimeLogInvoice';
+import AnalyticsPage from './pages/Analytics';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, isAdmin } = useAuth();
@@ -139,6 +140,10 @@ export default function App() {
               Invoice
             </button>
           )}
+          <button onClick={() => onNav('analytics')}
+            style={{ background:screen==='analytics'?C.border:'transparent', border:'none', borderRadius:3, padding:'5px 12px', fontFamily:F.con, fontSize:9, letterSpacing:3, textTransform:'uppercase', color:screen==='analytics'?C.cream:C.label, cursor:'pointer' }}>
+            Analytics
+          </button>
         </div>
 
         {/* User menu */}
@@ -175,6 +180,7 @@ export default function App() {
       {screen === 'projects'  && isAdmin && <ProjectsPage {...shared} onAdd={addProject} onEdit={editProject} onDelete={deleteProject} />}
       {screen === 'timelog'   && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} />}
       {screen === 'invoice'   && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
+      {screen === 'analytics' && <AnalyticsPage {...shared} />}
 
       {!isAdmin && ['clients','team','invoice'].includes(screen) && (
         <div style={{ maxWidth:600, margin:'80px auto', padding:'0 32px', textAlign:'center' }}>

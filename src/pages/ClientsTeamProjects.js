@@ -259,6 +259,7 @@ export function ProjectsPage({ projects, clients, logs, onAdd, onEdit, onDelete,
             </Sel>
           </Row>
           {form.type === 'fixed' && <Inp label="Fixed Amount (₹)" type="number" value={form.amount || ''} onChange={f('amount')} placeholder="0" />}
+          <Inp label="Estimated Hours" type="number" value={form.estimated_hours || ''} onChange={f('estimated_hours')} placeholder="e.g. 40" />
           <Inp label="Description (optional)" value={form.description || ''} onChange={f('description')} placeholder="Brief project description" />
           <Row style={{ marginTop: 18 }}>
             <Btn variant="secondary" onClick={() => setModal(null)}>Cancel</Btn>
