@@ -1,45 +1,40 @@
 import { useState, useEffect } from 'react';
-import { auth } from '../lib/supabase';
+import { USERS } from './users';
+
+const SESSION_KEY = 'altr_user';
 
 export function useAuth() {
   const [user,    setUser]    = useState(null);
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check existing session on mount
-    auth.getSession().then(async session => {
-      if (session?.user) {
-        setUser(session.user);
-        const p = await auth.getProfile(session.user.id);
-        setProfile(p);
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: listener } = auth.onAuthChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        setUser(session.user);
-        const p = await auth.getProfile(session.user.id);
-        setProfile(p);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setProfile(null);
-      }
-    });
-
-    return () => listener?.subscription?.unsubscribe();
+    // Restore session from sessionStorage
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) setUser(JSON.parse(saved));
+    } catch (e) {}
+    setLoading(false);
   }, []);
 
-  const signOut = async () => {
-    await auth.signOut();
-    setUser(null);
-    setProfile(null);
+  const signIn = (username, password) => {
+    const found = USERS.find(
+      u => u.username.toLowerCase() === username.toLowerCase().trim()
+        && u.password === password
+    );
+    if (!found) return false;
+    const u = { username: found.username, name: found.name, role: found.role };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(u));
+    setUser(u);
+    return true;
   };
 
-  const isAdmin = profile?.role === 'admin';
-  const isMember = profile?.role === 'member';
+  const signOut = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setUser(null);
+  };
 
-  return { user, profile, loading, signOut, isAdmin, isMember };
+  const isAdmin  = user?.role === 'admin';
+  const isMember = user?.role === 'member';
+
+  return { user, loading, signIn, signOut, isAdmin, isMember };
 }
