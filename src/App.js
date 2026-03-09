@@ -4,7 +4,7 @@ import { C, F } from './lib/utils';
 import { Cap, Toast } from './components/UI';
 import Dashboard from './pages/Dashboard';
 import { ClientsPage, TeamPage, ProjectsPage } from './pages/ClientsTeamProjects';
-import { TimeLogPage, InvoicePage } from './pages/TimeLogInvoice';
+import { TimeLogPage, InvoicePage, FloatingTimer } from './pages/TimeLogInvoice';
 
 export default function App() {
   const [screen,   setScreen]   = useState('dashboard');
@@ -128,6 +128,10 @@ export default function App() {
         select option { background: #161616; }
         input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.3); }
         button { cursor: pointer; }
+        html { font-size: 16px; }
+        @media (max-width: 600px) {
+          input, select { font-size: 16px !important; }
+        }
       `}</style>
 
       {screen === 'dashboard' && (
@@ -148,6 +152,9 @@ export default function App() {
       {screen === 'invoice' && (
         <InvoicePage {...shared} onSave={saveInvoice} />
       )}
+
+      {/* Floating timer — visible on every screen */}
+      <FloatingTimer team={team} projects={projects} clients={clients} onAdd={addLog} />
 
       {toast && <Toast {...toast} />}
     </div>

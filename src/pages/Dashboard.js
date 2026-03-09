@@ -17,26 +17,26 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
     <div style={{ maxWidth: 920, margin: '0 auto', padding: '44px 32px 80px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 48 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 10, letterSpacing: 6, textTransform: 'uppercase', color: C.muted, marginBottom: 10 }}>ALTR COLLECTIVE</div>
-          <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 48, lineHeight: .9, letterSpacing: -2, textTransform: 'uppercase', color: C.cream }}>
+          <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 'clamp(28px,6vw,48px)', lineHeight: .9, letterSpacing: -2, textTransform: 'uppercase', color: C.cream }}>
             Operations<br /><span style={{ color: C.muted }}>Dashboard</span>
           </div>
         </div>
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
           <Cap style={{ marginBottom: 0, color: C.muted }}>
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}
           </Cap>
           <div style={{ display: 'flex', gap: 8 }}>
             <Btn variant="secondary" onClick={() => onNav('timelog')}>+ Log Time</Btn>
-            <Btn onClick={() => onNav('invoice')}>+ New Invoice</Btn>
+            <Btn onClick={() => onNav('invoice')}>+ Invoice</Btn>
           </div>
         </div>
       </div>
 
-      {/* Nav cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 24 }}>
+      {/* Nav cards — 2 cols on mobile, 4 on desktop */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 24 }}>
         {[
           { label: 'Clients',  val: clients.length,  sub: 'registered',    icon: '◎', s: 'clients' },
           { label: 'Team',     val: team.length,      sub: 'members',       icon: '◈', s: 'team' },

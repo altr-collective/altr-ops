@@ -5,7 +5,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_MyBbzIdIAbKAAlaNyQknNA_A1qmp3Em';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ─── Generic CRUD helpers ──────────────────────────────────────────
 export const db = {
   async getAll(table) {
     const { data, error } = await supabase
@@ -17,9 +16,11 @@ export const db = {
   },
 
   async insert(table, row) {
+    // Strip client-side id — let Supabase generate it via default
+    const { id, ...rest } = row;
     const { data, error } = await supabase
       .from(table)
-      .insert([{ ...row, created_at: new Date().toISOString() }])
+      .insert([{ ...rest, created_at: new Date().toISOString() }])
       .select()
       .single();
     if (error) { console.error(`insert ${table}:`, error); return null; }

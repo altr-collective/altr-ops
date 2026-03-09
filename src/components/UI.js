@@ -10,14 +10,14 @@ export const Cap = ({ size = 9, weight = 600, tracking = 4, color = C.label, chi
 export const Inp = ({ label, style, containerStyle, ...p }) => (
   <div style={{ marginBottom: 12, ...containerStyle }}>
     {label && <Cap style={{ marginBottom: 5 }}>{label}</Cap>}
-    <input {...p} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 4, padding: '9px 11px', fontFamily: F.con, fontSize: 13, letterSpacing: 1, color: C.cream, outline: 'none', ...style }} />
+    <input {...p} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 4, padding: '10px 12px', fontFamily: F.con, fontSize: 14, letterSpacing: 1, color: C.cream, outline: 'none', WebkitAppearance: 'none', ...style }} />
   </div>
 );
 
 export const Sel = ({ label, children, containerStyle, style, ...p }) => (
   <div style={{ marginBottom: 12, ...containerStyle }}>
     {label && <Cap style={{ marginBottom: 5 }}>{label}</Cap>}
-    <select {...p} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 4, padding: '9px 11px', fontFamily: F.con, fontSize: 13, letterSpacing: 1, color: C.cream, outline: 'none', WebkitAppearance: 'none', ...style }}>
+    <select {...p} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 4, padding: '10px 12px', fontFamily: F.con, fontSize: 14, letterSpacing: 1, color: C.cream, outline: 'none', WebkitAppearance: 'none', ...style }}>
       {children}
     </select>
   </div>
@@ -25,13 +25,14 @@ export const Sel = ({ label, children, containerStyle, style, ...p }) => (
 
 export const Btn = ({ children, variant = 'primary', size = 'md', style, ...p }) => {
   const base = { border: 'none', borderRadius: 4, fontFamily: F.con, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', transition: 'all .15s', letterSpacing: 3 };
-  const sizes = { sm: { padding: '5px 12px', fontSize: 9 }, md: { padding: '10px 20px', fontSize: 11 }, lg: { padding: '13px 24px', fontSize: 12 } };
+  const sizes = { sm: { padding: '5px 12px', fontSize: 9 }, md: { padding: '10px 20px', fontSize: 11 }, lg: { padding: '14px 24px', fontSize: 12 } };
   const variants = {
     primary:   { background: C.cream, color: C.bg },
     secondary: { background: 'transparent', border: `1px solid ${C.border2}`, color: C.text },
-    ghost:     { background: 'transparent', border: `1px solid ${C.border2}`, color: C.label, padding: '5px 11px', fontSize: 9, letterSpacing: 2 },
-    danger:    { background: 'transparent', border: `1px solid rgba(201,79,79,.3)`, color: C.red, padding: '5px 11px', fontSize: 9 },
+    ghost:     { background: 'transparent', border: `1px solid ${C.border2}`, color: C.label, padding: '6px 12px', fontSize: 9, letterSpacing: 2 },
+    danger:    { background: 'transparent', border: `1px solid rgba(201,79,79,.3)`, color: C.red, padding: '6px 12px', fontSize: 9 },
     green:     { background: C.green, color: '#fff' },
+    red:       { background: C.red, color: '#fff' },
   };
   return <button {...p} style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>{children}</button>;
 };
@@ -41,12 +42,12 @@ export const Badge = ({ status }) => {
     unpaid:    { bg: 'rgba(217,140,69,.1)',   c: C.orange, b: 'rgba(217,140,69,.2)' },
     paid:      { bg: 'rgba(82,184,122,.1)',   c: C.green,  b: 'rgba(82,184,122,.2)' },
     overdue:   { bg: 'rgba(201,79,79,.1)',    c: C.red,    b: 'rgba(201,79,79,.2)' },
-    active:    { bg: 'rgba(82,184,122,.08)',  c: C.green,  b: 'rgba(82,184,122,.2)' },
-    completed: { bg: 'rgba(78,143,199,.08)',  c: C.blue,   b: 'rgba(78,143,199,.2)' },
-    archived:  { bg: 'rgba(80,80,80,.08)',    c: C.label,  b: 'rgba(80,80,80,.2)' },
-    hourly:    { bg: 'rgba(78,143,199,.08)',  c: C.blue,   b: 'rgba(78,143,199,.2)' },
-    fixed:     { bg: 'rgba(139,111,190,.08)', c: C.purple, b: 'rgba(139,111,190,.2)' },
-    billed:    { bg: 'rgba(82,184,122,.08)',  c: C.green,  b: 'rgba(82,184,122,.2)' },
+    active:    { bg: 'rgba(82,184,122,.08)', c: C.green,  b: 'rgba(82,184,122,.2)' },
+    completed: { bg: 'rgba(78,143,199,.08)', c: C.blue,   b: 'rgba(78,143,199,.2)' },
+    archived:  { bg: 'rgba(80,80,80,.08)',   c: C.label,  b: 'rgba(80,80,80,.2)' },
+    hourly:    { bg: 'rgba(78,143,199,.08)', c: C.blue,   b: 'rgba(78,143,199,.2)' },
+    fixed:     { bg: 'rgba(139,111,190,.08)',c: C.purple, b: 'rgba(139,111,190,.2)' },
+    billed:    { bg: 'rgba(82,184,122,.08)', c: C.green,  b: 'rgba(82,184,122,.2)' },
   };
   const s = m[status] || m.unpaid;
   return (
@@ -78,11 +79,11 @@ export const Card = ({ children, style, onClick, hover = false }) => {
   );
 };
 
-export const Modal = ({ title, onClose, children, width = 420 }) => (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+export const Modal = ({ title, onClose, children, width = 440 }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: 16 }}
     onClick={e => e.target === e.currentTarget && onClose()}>
-    <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 10, padding: 28, width, maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,.6)' }}>
-      <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 17, letterSpacing: 1, textTransform: 'uppercase', color: C.cream, marginBottom: 22 }}>{title}</div>
+    <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 10, padding: 24, width: '100%', maxWidth: width, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,.6)' }}>
+      <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 16, letterSpacing: 1, textTransform: 'uppercase', color: C.cream, marginBottom: 20 }}>{title}</div>
       {children}
     </div>
   </div>
@@ -97,7 +98,7 @@ export const Toast = ({ msg, type }) => (
 export const StatBox = ({ label, value, color, sub }) => (
   <div>
     <Cap style={{ marginBottom: 4 }}>{label}</Cap>
-    <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 22, color: color || C.cream, letterSpacing: 0 }}>{value}</div>
+    <div style={{ fontFamily: F.con, fontWeight: 800, fontSize: 20, color: color || C.cream, letterSpacing: 0 }}>{value}</div>
     {sub && <div style={{ fontFamily: F.con, fontSize: 9, color: C.muted, marginTop: 3, letterSpacing: 1 }}>{sub}</div>}
   </div>
 );
@@ -116,10 +117,10 @@ export const Empty = ({ icon, text }) => (
 );
 
 export const FilterBar = ({ options, value, onChange }) => (
-  <div style={{ display: 'flex', gap: 4 }}>
+  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
     {options.map(o => (
       <button key={o} onClick={() => onChange(o)}
-        style={{ background: value === o ? C.cream : 'transparent', border: `1px solid ${value === o ? C.cream : C.border2}`, borderRadius: 3, padding: '3px 11px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: value === o ? C.bg : C.muted, cursor: 'pointer' }}>
+        style={{ background: value === o ? C.cream : 'transparent', border: `1px solid ${value === o ? C.cream : C.border2}`, borderRadius: 3, padding: '4px 12px', fontFamily: F.con, fontSize: 8, letterSpacing: 2, textTransform: 'uppercase', color: value === o ? C.bg : C.muted, cursor: 'pointer' }}>
         {o}
       </button>
     ))}
@@ -127,11 +128,11 @@ export const FilterBar = ({ options, value, onChange }) => (
 );
 
 export const PageShell = ({ title, onBack, action, children }) => (
-  <div style={{ maxWidth: 1000, margin: '0 auto', padding: '36px 32px 80px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <button onClick={onBack} style={{ background: 'transparent', border: `1px solid ${C.border2}`, borderRadius: 4, padding: '6px 14px', fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: C.muted, cursor: 'pointer' }}>← Back</button>
-        <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 30, letterSpacing: -0.5, textTransform: 'uppercase', color: C.cream }}>{title}</div>
+  <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px 80px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <button onClick={onBack} style={{ background: 'transparent', border: `1px solid ${C.border2}`, borderRadius: 4, padding: '7px 14px', fontFamily: F.con, fontSize: 9, letterSpacing: 3, textTransform: 'uppercase', color: C.muted, cursor: 'pointer' }}>← Back</button>
+        <div style={{ fontFamily: F.con, fontWeight: 900, fontSize: 26, letterSpacing: -0.5, textTransform: 'uppercase', color: C.cream }}>{title}</div>
       </div>
       {action}
     </div>
