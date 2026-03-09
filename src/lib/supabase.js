@@ -5,6 +5,39 @@ const SUPABASE_ANON_KEY = 'sb_publishable_MyBbzIdIAbKAAlaNyQknNA_A1qmp3Em';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ── AUTH HELPERS ────────────────────────────────────────────────
+export const auth = {
+  async signIn(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+    return { user: data.user, session: data.session };
+  },
+
+  async signOut() {
+    await supabase.auth.signOut();
+  },
+
+  async getSession() {
+    const { data } = await supabase.auth.getSession();
+    return data.session;
+  },
+
+  async getProfile(userId) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (error) return null;
+    return data;
+  },
+
+  onAuthChange(callback) {
+    return supabase.auth.onAuthStateChange(callback);
+  }
+};
+
+// ── DB HELPERS ──────────────────────────────────────────────────
 export const db = {
   async getAll(table) {
     const { data, error } = await supabase
@@ -16,7 +49,7 @@ export const db = {
   },
 
   async insert(table, row) {
-    // Strip client-side id — let Supabase generate it via default
+    // Strip client-side id — let Supabase generate via default
     const { id, ...rest } = row;
     const { data, error } = await supabase
       .from(table)

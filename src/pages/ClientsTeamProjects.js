@@ -18,7 +18,7 @@ export function ClientsPage({ clients, team, invoices, onAdd, onEdit, onDelete, 
   return (
     <PageShell title="Clients" onBack={() => onNav('dashboard')} action={<Btn onClick={() => { setForm({ terms: 'Net 30' }); setModal('add'); }}>+ Add Client</Btn>}>
       {clients.length === 0 ? <Empty icon="◎" text="No clients yet" /> :
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
           {clients.map(c => {
             const invCount = invoices.filter(i => i.client_id === c.id).length;
             const memberCount = team.filter(m => m.rates?.[c.id]).length;
