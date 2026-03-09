@@ -51,9 +51,23 @@ export const db = {
   async insert(table, row) {
     // Strip client-side id — let Supabase generate via default
     const { id, ...rest } = row;
+
+    // Column whitelist per table — prevents unknown column errors
+    const COLS = {
+      logs:     ['member_id','project_id','date','hours','notes','billed','work_type'],
+      clients:  ['name','email','default_rate','terms','notes'],
+      team:     ['name','role','default_rate','rates'],
+      projects: ['name','client_id','type','status','amount','description','estimated_hours'],
+      invoices: ['client_id','client_name','project_id','project_name','no','date','terms','subtotal','gst','gst_rate','total','status','line_items'],
+    };
+    const allowed = COLS[table];
+    const payload = allowed
+      ? Object.fromEntries(Object.entries(rest).filter(([k]) => allowed.includes(k)))
+      : rest;
+
     const { data, error } = await supabase
       .from(table)
-      .insert([{ ...rest, created_at: new Date().toISOString() }])
+      .insert([{ ...payload, created_at: new Date().toISOString() }])
       .select()
       .single();
     if (error) { console.error(`insert ${table}:`, error); return null; }
