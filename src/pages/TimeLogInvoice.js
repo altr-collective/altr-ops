@@ -11,7 +11,10 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
   const [elapsed,   setElapsed]   = useState(0);       // seconds
   const [startedAt, setStartedAt] = useState(null);
   const [saving,    setSaving]    = useState(false);
-  const [form,      setForm]      = useState({ date: today() });
+  const [form,      setForm]      = useState({ date: today(), work_type: 'client_design' });
+  const [formError, setFormError] = useState('');
+  // Use a ref for hours so save() always reads the latest value regardless of render cycle
+  const hoursRef = useRef(0);
   const intervalRef = useRef(null);
 
   // Tick every second when running
@@ -32,14 +35,17 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
     setElapsed(0);
     setRunning(true);
     setOpen(true);
+    setFormError('');
   };
 
   const stop = () => {
     setRunning(false);
     setSaving(true);
-    // Round to nearest 0.25h
+    // Round to nearest 0.25h and store in ref immediately
     const hrs = Math.max(0.25, Math.round((elapsed / 3600) * 4) / 4);
+    hoursRef.current = hrs;
     setForm(p => ({ ...p, hours: hrs.toString(), date: today() }));
+    setFormError('');
   };
 
   const reset = () => {
@@ -47,12 +53,19 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
     setElapsed(0);
     setStartedAt(null);
     setSaving(false);
-    setForm({ date: today() });
+    hoursRef.current = 0;
+    setForm({ date: today(), work_type: 'client_design' });
+    setFormError('');
   };
 
   const save = async () => {
-    if (!form.member_id || !form.project_id || !form.hours) return;
-    await onAdd({ ...form, hours: parseFloat(form.hours), billed: false });
+    // Read hours from ref (always current) and fall back to form state
+    const hours = hoursRef.current || parseFloat(form.hours) || 0;
+    if (!form.member_id) { setFormError('Please select a team member.'); return; }
+    if (!form.project_id) { setFormError('Please select a project.'); return; }
+    if (!hours) { setFormError('No hours recorded.'); return; }
+    setFormError('');
+    await onAdd({ ...form, hours, billed: false });
     reset();
     setOpen(false);
   };
@@ -161,6 +174,11 @@ export function FloatingTimer({ team, projects, clients, onAdd }) {
                   <Inp label="Notes (optional)" value={form.notes || ''} onChange={f('notes')} placeholder="What did you work on?" containerStyle={{ marginBottom: 0, marginTop: 12 }} />
                 </div>
 
+                {formError && (
+                  <div style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: C.red, marginBottom: 12, padding: '8px 12px', background: 'rgba(201,79,79,.08)', border: '1px solid rgba(201,79,79,.2)', borderRadius: 4 }}>
+                    {formError}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <Btn variant="secondary" style={{ flex: 0 }} onClick={reset}>Discard</Btn>
                   <Btn variant="green" size="lg" style={{ flex: 1 }} onClick={save}>Save Time Entry ✓</Btn>
@@ -188,11 +206,15 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
   const [form,     setForm]    = useState({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
+  const [saveError, setSaveError] = useState('');
   const save = async () => {
-    if (!form.member_id || !form.project_id || !form.hours) return;
+    if (!form.member_id) { setSaveError('Please select a team member.'); return; }
+    if (!form.project_id) { setSaveError('Please select a project.'); return; }
+    if (!form.hours || parseFloat(form.hours) <= 0) { setSaveError('Please enter valid hours.'); return; }
+    setSaveError('');
     await onAdd({ ...form, hours: parseFloat(form.hours), billed: false });
     setModal(false);
-    setForm({ date: today(), hours: '', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
+    setForm({ date: today(), hours: '', work_type: 'client_design', ...(navData?.projectId ? { project_id: navData.projectId } : {}) });
   };
 
   const filtered = logs.filter(l =>
@@ -318,8 +340,13 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
             {WORK_TYPES.map(wt => <option key={wt.id} value={wt.id}>{wt.label}</option>)}
           </Sel>
           <Inp label="Notes" value={form.notes || ''} onChange={f('notes')} placeholder="What was worked on?" />
+          {saveError && (
+            <div style={{ fontFamily: F.con, fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: C.red, marginBottom: 12, padding: '8px 12px', background: 'rgba(201,79,79,.08)', border: '1px solid rgba(201,79,79,.2)', borderRadius: 4 }}>
+              {saveError}
+            </div>
+          )}
           <Row style={{ marginTop: 18 }}>
-            <Btn variant="secondary" onClick={() => setModal(false)}>Cancel</Btn>
+            <Btn variant="secondary" onClick={() => { setModal(false); setSaveError(''); }}>Cancel</Btn>
             <Btn onClick={save}>Save Entry</Btn>
           </Row>
         </Modal>
