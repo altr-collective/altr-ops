@@ -10,22 +10,30 @@ import { ClientsPage, TeamPage, ProjectsPage } from './pages/ClientsTeamProjects
 import { TimeLogPage, InvoicePage, FloatingTimer } from './pages/TimeLogInvoice';
 import AnalyticsPage from './pages/Analytics';
 import ProjectDetail from './pages/ProjectDetail';
+import { DailyCheckIn } from './components/DailyCheckIn';
+import { NaturalLog } from './components/NaturalLog';
+import { hasCheckedInToday, getCheckIn } from './lib/checkin';
+import { computeStreak } from './lib/streak';
 
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, isAdmin } = useAuth();
 
-  const [screen,      setScreen]      = useState('dashboard');
-  const [navData,     setNavData]     = useState({});
-  const [clients,     setClients]     = useState([]);
-  const [team,        setTeam]        = useState([]);
-  const [projects,    setProjects]    = useState([]);
-  const [logs,        setLogs]        = useState([]);
-  const [invoices,    setInvoices]    = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [toast,       setToast]       = useState(null);
-  const [userMenu,    setUserMenu]    = useState(false);
+  const [screen,       setScreen]       = useState('dashboard');
+  const [navData,      setNavData]      = useState({});
+  const [clients,      setClients]      = useState([]);
+  const [team,         setTeam]         = useState([]);
+  const [projects,     setProjects]     = useState([]);
+  const [logs,         setLogs]         = useState([]);
+  const [invoices,     setInvoices]     = useState([]);
+  const [dataLoading,  setDataLoading]  = useState(true);
+  const [toast,        setToast]        = useState(null);
+  const [userMenu,     setUserMenu]     = useState(false);
+  const [showCheckIn,  setShowCheckIn]  = useState(false);
+  const [showNatLog,   setShowNatLog]   = useState(false);
+  const [timerProject, setTimerProject] = useState(null);
+  const [streak,       setStreak]       = useState({ count: 0, hasLoggedToday: false });
 
-  // Load data once user is logged in
+  // Load data once logged in
   useEffect(() => {
     if (!user) { setDataLoading(false); return; }
     setDataLoading(true);
@@ -40,6 +48,25 @@ export default function App() {
       setDataLoading(false);
     });
   }, [user]);
+
+  // Show check-in on first open of the day (after data loads)
+  useEffect(() => {
+    if (!user || dataLoading) return;
+    if (!hasCheckedInToday(user.username)) {
+      // Small delay so dashboard renders first
+      const t = setTimeout(() => setShowCheckIn(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [user, dataLoading]);
+
+  // Compute streak whenever logs change
+  useEffect(() => {
+    if (!user || !logs.length) return;
+    // Filter logs for this user's team member record
+    const myLogs = logs; // Show streak based on any logged entry (team context)
+    const s = computeStreak(user.username, myLogs);
+    setStreak(s);
+  }, [user, logs]);
 
   const notify = useCallback((msg, type = '') => {
     setToast({ msg, type });
@@ -63,17 +90,21 @@ export default function App() {
   const editProject   = async r => { const d = await db.update('projects',  r.id, r); if (d) { setProjects(p=>p.map(x=>x.id===d.id?d:x)); notify('Project updated','ok'); }};
   const deleteProject = async id => { await db.remove('projects', id); setProjects(p=>p.filter(x=>x.id!==id)); notify('Project removed'); };
 
-  const addLog       = async r => { const d = await db.insert('logs', r); if (d) { setLogs(p=>[d,...p]); notify('Time logged','ok'); }};
-  const deleteLog    = async id => { await db.remove('logs', id); setLogs(p=>p.filter(x=>x.id!==id)); notify('Entry removed'); };
+  const addLog = async r => {
+    const d = await db.insert('logs', r);
+    if (d) {
+      setLogs(p => [d, ...p]);
+      notify('Time logged ✓', 'ok');
+      // Recompute streak
+      const s = computeStreak(user.username, [d, ...logs]);
+      setStreak(s);
+    }
+  };
+  const deleteLog      = async id => { await db.remove('logs', id); setLogs(p=>p.filter(x=>x.id!==id)); notify('Entry removed'); };
   const deleteManyLogs = async ids => {
     await Promise.all(ids.map(id => db.remove('logs', id)));
     setLogs(p=>p.filter(x=>!ids.includes(x.id)));
     notify(`${ids.length} entries removed`);
-  };
-  const deleteInvoice = async id => {
-    await db.remove('invoices', id);
-    setInvoices(p=>p.filter(x=>x.id!==id));
-    notify('Invoice deleted');
   };
 
   const saveInvoice = async (invoiceRow, billedLogIds) => {
@@ -93,7 +124,19 @@ export default function App() {
     if (d) { setInvoices(p=>p.map(x=>x.id===d.id?d:x)); notify(`Marked as ${status}`,'ok'); }
   };
 
-  // ── Loading / Auth gates ────────────────────────────────────────
+  const deleteInvoice = async id => {
+    await db.remove('invoices', id);
+    setInvoices(p=>p.filter(x=>x.id!==id));
+    notify('Invoice deleted');
+  };
+
+  // ── Check-in start timer callback ───────────────────────────────
+  const handleCheckInTimer = (projectId) => {
+    setTimerProject(projectId);
+    setShowCheckIn(false);
+  };
+
+  // ── Loading ─────────────────────────────────────────────────────
   if (authLoading) return (
     <div style={{ background: C.bg, height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&display=swap'); * { box-sizing:border-box; margin:0; padding:0; }`}</style>
@@ -127,6 +170,7 @@ export default function App() {
         button { cursor: pointer; }
         html { font-size: 16px; }
         @media (max-width: 600px) { input, select { font-size: 16px !important; } }
+        @keyframes streakPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
       `}</style>
 
       {/* Top nav */}
@@ -135,7 +179,8 @@ export default function App() {
           ALTR COLLECTIVE
         </div>
 
-        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+        {/* Nav links */}
+        <div style={{ display:'flex', gap:2, alignItems:'center' }}>
           {isAdmin && ['clients','team','projects'].map(s => (
             <button key={s} onClick={() => onNav(s)}
               style={{ background:screen===s?C.border:'transparent', border:'none', borderRadius:3, padding:'5px 12px', fontFamily:F.con, fontSize:9, letterSpacing:3, textTransform:'uppercase', color:screen===s?C.cream:C.label, cursor:'pointer' }}>
@@ -152,15 +197,26 @@ export default function App() {
               Invoice
             </button>
           )}
-          <button onClick={() => onNav('analytics')}
-            style={{ background:screen==='analytics'?C.border:'transparent', border:'none', borderRadius:3, padding:'5px 12px', fontFamily:F.con, fontSize:9, letterSpacing:3, textTransform:'uppercase', color:screen==='analytics'?C.cream:C.label, cursor:'pointer' }}>
-            Analytics
+          {/* Quick log button */}
+          <button onClick={() => setShowNatLog(true)}
+            style={{ background:'rgba(82,184,122,.12)', border:`1px solid rgba(82,184,122,.25)`, borderRadius:3, padding:'5px 12px', fontFamily:F.con, fontSize:9, letterSpacing:3, textTransform:'uppercase', color:C.green, cursor:'pointer', marginLeft:4 }}>
+            ✦ Quick Log
           </button>
         </div>
 
-        {/* User menu */}
+        {/* User menu with streak */}
         <div style={{ position:'relative' }}>
           <div onClick={() => setUserMenu(!userMenu)} style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', padding:'5px 10px', borderRadius:4, background:userMenu?C.border:'transparent' }}>
+            {/* Streak indicator */}
+            {streak.count > 0 && (
+              <div style={{
+                display:'flex', alignItems:'center', gap:3,
+                fontFamily:F.con, fontSize:10, color: streak.hasLoggedToday ? C.orange : C.muted,
+                animation: streak.hasLoggedToday && streak.count >= 3 ? 'streakPulse 2s infinite' : 'none',
+              }}>
+                🔥 <span style={{ fontWeight:700 }}>{streak.count}</span>
+              </div>
+            )}
             <div style={{ width:26, height:26, borderRadius:'50%', background:C.border2, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F.con, fontWeight:800, fontSize:11, color:C.cream }}>
               {(user.name||user.username||'U')[0].toUpperCase()}
             </div>
@@ -170,12 +226,29 @@ export default function App() {
           </div>
 
           {userMenu && (
-            <div style={{ position:'absolute', right:0, top:'110%', background:C.surface, border:`1px solid ${C.border2}`, borderRadius:6, padding:8, minWidth:180, boxShadow:'0 8px 24px rgba(0,0,0,.4)', zIndex:200 }}>
+            <div style={{ position:'absolute', right:0, top:'110%', background:C.surface, border:`1px solid ${C.border2}`, borderRadius:6, padding:8, minWidth:200, boxShadow:'0 8px 24px rgba(0,0,0,.4)', zIndex:200 }}>
               <div style={{ padding:'6px 12px', borderBottom:`1px solid ${C.border}`, marginBottom:4 }}>
                 <div style={{ fontFamily:F.con, fontSize:11, color:C.cream }}>{user.name}</div>
                 <div style={{ fontFamily:F.con, fontSize:9, color:C.label, marginTop:2, textTransform:'uppercase', letterSpacing:1 }}>{user.role}</div>
+                {streak.count > 0 && (
+                  <div style={{ fontFamily:F.con, fontSize:9, color:C.orange, marginTop:4 }}>
+                    🔥 {streak.count} day streak{streak.count === 1 ? '' : 's'} {streak.hasLoggedToday ? '· logged today ✓' : '· log something to keep it!'}
+                  </div>
+                )}
               </div>
-              <button onClick={signOut} style={{ width:'100%', textAlign:'left', background:'transparent', border:'none', padding:'8px 12px', fontFamily:F.con, fontSize:10, letterSpacing:3, textTransform:'uppercase', color:C.red, cursor:'pointer', borderRadius:3 }}>
+              {/* Today's intention */}
+              {getCheckIn(user.username) && (
+                <div style={{ padding:'6px 12px', borderBottom:`1px solid ${C.border}`, marginBottom:4 }}>
+                  <div style={{ fontFamily:F.con, fontSize:8, letterSpacing:2, textTransform:'uppercase', color:C.muted, marginBottom:3 }}>Today's focus</div>
+                  <div style={{ fontFamily:F.body, fontSize:11, color:C.text, fontStyle:'italic' }}>"{getCheckIn(user.username).intention}"</div>
+                </div>
+              )}
+              <button onClick={() => { setUserMenu(false); setShowCheckIn(true); }}
+                style={{ width:'100%', textAlign:'left', background:'transparent', border:'none', padding:'8px 12px', fontFamily:F.con, fontSize:10, letterSpacing:3, textTransform:'uppercase', color:C.label, cursor:'pointer', borderRadius:3 }}>
+                Set Today's Intention
+              </button>
+              <button onClick={signOut}
+                style={{ width:'100%', textAlign:'left', background:'transparent', border:'none', padding:'8px 12px', fontFamily:F.con, fontSize:10, letterSpacing:3, textTransform:'uppercase', color:C.red, cursor:'pointer', borderRadius:3 }}>
                 Sign Out
               </button>
             </div>
@@ -186,13 +259,13 @@ export default function App() {
       {userMenu && <div style={{ position:'fixed', inset:0, zIndex:99 }} onClick={() => setUserMenu(false)} />}
 
       {/* Screens */}
-      {screen === 'dashboard' && <Dashboard {...shared} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} />}
-      {screen === 'clients'   && isAdmin && <ClientsPage  {...shared} onAdd={addClient}  onEdit={editClient}  onDelete={deleteClient} />}
-      {screen === 'team'      && isAdmin && <TeamPage     {...shared} onAdd={addTeam}    onEdit={editTeam}    onDelete={deleteTeam} />}
-      {screen === 'projects'  && isAdmin && <ProjectsPage {...shared} onAdd={addProject} onEdit={editProject} onDelete={deleteProject} />}
-      {screen === 'timelog'   && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} />}
-      {screen === 'invoice'   && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
-      {screen === 'analytics' && <AnalyticsPage {...shared} />}
+      {screen === 'dashboard'      && <Dashboard {...shared} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} streak={streak} checkIn={getCheckIn(user?.username)} />}
+      {screen === 'clients'        && isAdmin && <ClientsPage  {...shared} onAdd={addClient}  onEdit={editClient}  onDelete={deleteClient} />}
+      {screen === 'team'           && isAdmin && <TeamPage     {...shared} onAdd={addTeam}    onEdit={editTeam}    onDelete={deleteTeam} />}
+      {screen === 'projects'       && isAdmin && <ProjectsPage {...shared} onAdd={addProject} onEdit={editProject} onDelete={deleteProject} />}
+      {screen === 'timelog'        && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} />}
+      {screen === 'invoice'        && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
+      {screen === 'analytics'      && <AnalyticsPage {...shared} />}
       {screen === 'project-detail' && <ProjectDetail {...shared} projectId={navData?.projectId} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} />}
 
       {!isAdmin && ['clients','team','invoice'].includes(screen) && (
@@ -204,7 +277,27 @@ export default function App() {
         </div>
       )}
 
-      <FloatingTimer team={team} projects={projects} clients={clients} onAdd={addLog} />
+      {/* Floating timer */}
+      <FloatingTimer team={team} projects={projects} clients={clients} onAdd={addLog} initialProjectId={timerProject} />
+
+      {/* Daily check-in */}
+      {showCheckIn && (
+        <DailyCheckIn
+          user={user} projects={projects}
+          onDismiss={() => setShowCheckIn(false)}
+          onStartTimer={handleCheckInTimer}
+        />
+      )}
+
+      {/* Natural language log */}
+      {showNatLog && (
+        <NaturalLog
+          team={team} projects={projects}
+          onSave={addLog}
+          onClose={() => setShowNatLog(false)}
+        />
+      )}
+
       {toast && <Toast {...toast} />}
     </div>
   );

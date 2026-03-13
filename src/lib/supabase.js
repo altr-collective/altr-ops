@@ -54,7 +54,7 @@ export const db = {
 
     // Column whitelist per table — prevents unknown column errors
     const COLS = {
-      logs:     ['member_id','project_id','date','hours','notes','billed','work_type'],
+      logs:     ['member_id','project_id','date','hours','notes','billed'],
       clients:  ['name','email','default_rate','terms','notes'],
       team:     ['name','role','default_rate','rates'],
       projects: ['name','client_id','type','status','amount','description','estimated_hours'],

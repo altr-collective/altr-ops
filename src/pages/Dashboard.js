@@ -5,7 +5,7 @@ import { isBillableWorkType } from '../lib/workTypes';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { InvoiceRender } from './TimeLogInvoice';
 
-export default function Dashboard({ clients, team, projects, logs, invoices, onNav, onMarkInvoice, onDeleteInvoice, isAdmin }) {
+export default function Dashboard({ clients, team, projects, logs, invoices, onNav, onMarkInvoice, onDeleteInvoice, isAdmin, streak, checkIn }) {
   const [filter,       setFilter]       = useState('all');
   const [confirm,      setConfirm]      = useState(null);
   const [previewInv,   setPreviewInv]   = useState(null);
@@ -53,6 +53,30 @@ export default function Dashboard({ clients, team, projects, logs, invoices, onN
           </div>
         </div>
       </div>
+
+      {/* Streak + intention banner */}
+      {(streak?.count > 0 || checkIn) && (
+        <div style={{ display:'flex', gap:10, marginBottom:20, flexWrap:'wrap' }}>
+          {streak?.count > 0 && (
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(217,140,69,.08)', border:`1px solid rgba(217,140,69,.2)`, borderRadius:6 }}>
+              <span style={{ fontSize:16 }}>🔥</span>
+              <div>
+                <div style={{ fontFamily:F.con, fontWeight:800, fontSize:14, color:C.orange }}>{streak.count} day streak</div>
+                <div style={{ fontFamily:F.con, fontSize:8, letterSpacing:2, textTransform:'uppercase', color:C.muted }}>{streak.hasLoggedToday ? 'Logged today ✓' : 'Log something to keep it!'}</div>
+              </div>
+            </div>
+          )}
+          {checkIn && (
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', background:'rgba(82,184,122,.06)', border:`1px solid rgba(82,184,122,.15)`, borderRadius:6, flex:1, minWidth:200 }}>
+              <span style={{ fontSize:14 }}>🎯</span>
+              <div>
+                <div style={{ fontFamily:F.con, fontSize:8, letterSpacing:2, textTransform:'uppercase', color:C.muted, marginBottom:2 }}>Today's focus</div>
+                <div style={{ fontFamily:F.body, fontSize:12, color:C.text, fontStyle:'italic' }}>"{checkIn.intention}"</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Nav cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 24 }}>

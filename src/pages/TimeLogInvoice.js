@@ -5,13 +5,13 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { WORK_TYPES, getWorkType } from '../lib/workTypes';
 
 // ─── FLOATING TIMER ───────────────────────────────────────────────
-export function FloatingTimer({ team, projects, clients, onAdd }) {
+export function FloatingTimer({ team, projects, clients, onAdd, initialProjectId }) {
   const [open,      setOpen]      = useState(false);
   const [running,   setRunning]   = useState(false);
   const [elapsed,   setElapsed]   = useState(0);       // seconds
   const [startedAt, setStartedAt] = useState(null);
   const [saving,    setSaving]    = useState(false);
-  const [form,      setForm]      = useState({ date: today(), work_type: 'client_design' });
+  const [form,      setForm]      = useState({ date: today(), work_type: 'client_design', ...(initialProjectId ? { project_id: initialProjectId } : {}) });
   const [formError, setFormError] = useState('');
   // Use a ref for hours so save() always reads the latest value regardless of render cycle
   const hoursRef = useRef(0);
