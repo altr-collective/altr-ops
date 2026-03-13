@@ -10,8 +10,8 @@ import { ClientsPage, TeamPage, ProjectsPage } from './pages/ClientsTeamProjects
 import { TimeLogPage, InvoicePage, FloatingTimer } from './pages/TimeLogInvoice';
 import AnalyticsPage from './pages/Analytics';
 import ProjectDetail from './pages/ProjectDetail';
-import { DailyCheckIn } from './components/DailyCheckIn';
-import { NaturalLog } from './components/NaturalLog';
+import { CheckIn } from './components/CheckIn';
+
 import { hasCheckedInToday, getCheckIn } from './lib/checkin';
 import { computeStreak } from './lib/streak';
 
@@ -29,8 +29,8 @@ export default function App() {
   const [toast,        setToast]        = useState(null);
   const [userMenu,     setUserMenu]     = useState(false);
   const [showCheckIn,  setShowCheckIn]  = useState(false);
-  const [showNatLog,   setShowNatLog]   = useState(false);
-  const [timerProject, setTimerProject] = useState(null);
+  const [timerProject,   setTimerProject]   = useState(null);
+  const [calEvents,      setCalEvents]      = useState([]);
   const [streak,       setStreak]       = useState({ count: 0, hasLoggedToday: false });
 
   // Load data once logged in
@@ -49,15 +49,40 @@ export default function App() {
     });
   }, [user]);
 
-  // Show check-in on first open of the day (after data loads)
+  // Show check-in immediately after login (always, not just first open)
   useEffect(() => {
     if (!user || dataLoading) return;
-    if (!hasCheckedInToday(user.username)) {
-      // Small delay so dashboard renders first
-      const t = setTimeout(() => setShowCheckIn(true), 800);
-      return () => clearTimeout(t);
-    }
+    setShowCheckIn(true);
+    // Fetch today's calendar events via Claude API
+    fetchCalendarEvents();
   }, [user, dataLoading]);
+
+  const fetchCalendarEvents = async () => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          mcp_servers: [{ type: 'url', url: 'https://gcal.mcp.claude.com/mcp', name: 'gcal' }],
+          messages: [{
+            role: 'user',
+            content: `Fetch today's Google Calendar events for primary calendar. Today is ${todayStr}. Return ONLY a JSON array of events with fields: id, summary, start (dateTime), eventType, colorId. No other text.`
+          }],
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.find(b => b.type === 'text')?.text || '[]';
+      try {
+        const clean = text.replace(/```json|```/g, '').trim();
+        const events = JSON.parse(clean.startsWith('[') ? clean : '[]');
+        setCalEvents(events);
+      } catch { setCalEvents([]); }
+    } catch { setCalEvents([]); }
+  };
 
   // Compute streak whenever logs change
   useEffect(() => {
@@ -197,11 +222,7 @@ export default function App() {
               Invoice
             </button>
           )}
-          {/* Quick log button */}
-          <button onClick={() => setShowNatLog(true)}
-            style={{ background:'rgba(82,184,122,.12)', border:`1px solid rgba(82,184,122,.25)`, borderRadius:3, padding:'5px 12px', fontFamily:F.con, fontSize:9, letterSpacing:3, textTransform:'uppercase', color:C.green, cursor:'pointer', marginLeft:4 }}>
-            ✦ Quick Log
-          </button>
+
         </div>
 
         {/* User menu with streak */}
@@ -263,7 +284,7 @@ export default function App() {
       {screen === 'clients'        && isAdmin && <ClientsPage  {...shared} onAdd={addClient}  onEdit={editClient}  onDelete={deleteClient} />}
       {screen === 'team'           && isAdmin && <TeamPage     {...shared} onAdd={addTeam}    onEdit={editTeam}    onDelete={deleteTeam} />}
       {screen === 'projects'       && isAdmin && <ProjectsPage {...shared} onAdd={addProject} onEdit={editProject} onDelete={deleteProject} />}
-      {screen === 'timelog'        && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} />}
+      {screen === 'timelog'        && <TimeLogPage {...shared} onAdd={addLog} onDelete={deleteLog} onDeleteMany={deleteManyLogs} currentUser={user} />}
       {screen === 'invoice'        && isAdmin && <InvoicePage {...shared} onSave={saveInvoice} />}
       {screen === 'analytics'      && <AnalyticsPage {...shared} />}
       {screen === 'project-detail' && <ProjectDetail {...shared} projectId={navData?.projectId} onMarkInvoice={markInvoice} onDeleteInvoice={deleteInvoice} />}
@@ -282,21 +303,14 @@ export default function App() {
 
       {/* Daily check-in */}
       {showCheckIn && (
-        <DailyCheckIn
-          user={user} projects={projects}
+        <CheckIn
+          user={user}
+          calendarEvents={calEvents}
           onDismiss={() => setShowCheckIn(false)}
-          onStartTimer={handleCheckInTimer}
         />
       )}
 
-      {/* Natural language log */}
-      {showNatLog && (
-        <NaturalLog
-          team={team} projects={projects}
-          onSave={addLog}
-          onClose={() => setShowNatLog(false)}
-        />
-      )}
+
 
       {toast && <Toast {...toast} />}
     </div>

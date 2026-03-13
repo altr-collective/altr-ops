@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { C, F, fmtINR, fmtHrs, fmtDate, fmtDateLong, calcDueDate, uid, today } from '../lib/utils';
 import { Cap, Inp, Sel, Btn, Badge, Card, Modal, Divider, Row, PageShell, Empty, Avatar, StatBox, Sec } from '../components/UI';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { NLBar } from '../components/NLBar';
 import { WORK_TYPES, getWorkType } from '../lib/workTypes';
 
 // ─── FLOATING TIMER ───────────────────────────────────────────────
@@ -197,7 +198,7 @@ export function FloatingTimer({ team, projects, clients, onAdd, initialProjectId
 }
 
 // ─── TIME LOG PAGE ────────────────────────────────────────────────
-export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, onDeleteMany, onNav, navData }) {
+export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, onDeleteMany, onNav, navData, currentUser }) {
   const [modal,    setModal]   = useState(false);
   const [confirm,  setConfirm] = useState(null);  // { ids: [], label: '' }
   const [selected, setSelected] = useState(new Set());
@@ -362,6 +363,15 @@ export function TimeLogPage({ logs, team, projects, clients, onAdd, onDelete, on
           onCancel={() => setConfirm(null)}
         />
       )}
+
+      {/* NL Bar — sticky at bottom */}
+      <NLBar
+        team={team}
+        projects={projects}
+        currentUser={currentUser}
+        onSave={onAdd}
+        onOpenManual={() => setModal(true)}
+      />
     </PageShell>
   );
 }
